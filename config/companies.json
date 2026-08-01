@@ -1,0 +1,25 @@
+[
+    {
+        "company": "Novelty Inc.",
+        "url": "https://noveltyinc.hrmdirect.com/employment/job-openings.php"
+    },
+  
+    {
+        "company": "Cummins",
+        "url": "https://www.cummins.com/en-na/careers",
+        "keywords": [
+            "Cloud",
+            "AWS",
+            "Systems Administrator",
+            "Infrastructure",
+            "Network",
+            "DevOps"
+        ],
+        "locations": [
+            "Indiana",
+            "Remote",
+            "Hybrid"
+        ],
+        "enabled": true
+    }
+]
