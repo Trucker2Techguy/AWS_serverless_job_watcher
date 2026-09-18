@@ -1,4 +1,6 @@
 import json
+import boto3
+
 
 # from scrapers.hrmdirect import download_page, get_jobs, inspect_html
 from scrapers.smartrecruiters import (get_jobs as get_smartrecruiters_jobs,
@@ -6,6 +8,8 @@ from scrapers.smartrecruiters import (get_jobs as get_smartrecruiters_jobs,
 from scrapers.gig_jobs import get_gig_jobs
 from scrapers.dataannotation import get_dataannotation_jobs
 
+dynamodb = boto3.Session(profile_name="job-watcher").resource("dynamodb")
+gig_table = dynamodb.Table("job-watcher-seen-gigs")
 
 
 CONFIG_FILE = "config/companies.json"
@@ -22,6 +26,11 @@ def main():
     print("AWS Job Watcher")
     print("-" * 20)
 
+   # print(gig_table.table_status)
+
+
+
+
     gig_jobs = get_gig_jobs()
     dataannotation_jobs = get_dataannotation_jobs()
 
@@ -31,35 +40,24 @@ def main():
     all_gig_jobs = gig_jobs + dataannotation_jobs
     print(f"Total gig jobs: {len(all_gig_jobs)}")
 
-    with open("seen_gig_jobs.json", "r", encoding="utf-8") as file:
-        seen_gig_jobs = json.load(file)
-
-    print(f"Previously seen gig jobs: {len(seen_gig_jobs)}")
-
-
-
-
-    seen_gig_urls = []
-
-    for job in seen_gig_jobs:
-        seen_gig_urls.append(job["url"])
-
-    new_gig_jobs = []
+    new_dynamodb_gig_jobs = []
 
     for job in all_gig_jobs:
-        if job["url"] not in seen_gig_urls:
-            new_gig_jobs.append(job)
+        # print(test_job)
 
-    print(f"New gig jobs: {len(new_gig_jobs)}")
+        response = gig_table.get_item(
+            Key={"url": job["url"]}
+        )
 
-    for job in new_gig_jobs:
-        print(job["title"])
-        print(job["url"])
+        if "Item" not in response:
+            print("Real job is new")
+            new_dynamodb_gig_jobs.append(job)
+            gig_table.put_item(Item=job)
 
-    all_seen_gig_jobs = seen_gig_jobs + new_gig_jobs
+    print(f"New DynamoDB gig jobs: {len(new_dynamodb_gig_jobs)}")
 
-    with open("seen_gig_jobs.json", "w", encoding="utf-8") as file:
-        json.dump(all_seen_gig_jobs, file, indent=4)
+
+
 
     companies = load_companies()
 
@@ -90,6 +88,9 @@ def main():
             #for job in jobs:
             #   print(job["title"])
             #   print(job["url"])
+
+def find_new_gig_jobs(all_gig_jobs):
+    new_dynamodb_gig_jobs = []
 
 if __name__ == "__main__":
     main()
