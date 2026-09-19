@@ -3,14 +3,21 @@ import boto3
 
 
 # from scrapers.hrmdirect import download_page, get_jobs, inspect_html
-from scrapers.smartrecruiters import (get_jobs as get_smartrecruiters_jobs,
-    filter_jobs, load_seen_jobs, get_new_jobs, save_seen_jobs)
+from scrapers.smartrecruiters import (
+    get_jobs as get_smartrecruiters_jobs,
+    filter_jobs
+)
 from scrapers.gig_jobs import get_gig_jobs
 from scrapers.dataannotation import get_dataannotation_jobs
 
 dynamodb = boto3.Session(profile_name="job-watcher").resource("dynamodb")
 gig_table = dynamodb.Table("job-watcher-seen-gigs")
 
+job_table = dynamodb.Table("job-watcher-seen-jobs")
+
+sns = boto3.Session(profile_name="job-watcher").client("sns")
+
+SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:178504705772:aws-job-watcher-alerts" #"""Use your own SNS topic ARN"""
 
 CONFIG_FILE = "config/companies.json"
 
@@ -55,6 +62,7 @@ def main():
             gig_table.put_item(Item=job)
 
     print(f"New DynamoDB gig jobs: {len(new_dynamodb_gig_jobs)}")
+    all_new_jobs = new_dynamodb_gig_jobs.copy()
 
 
 
@@ -73,13 +81,25 @@ def main():
             jobs = get_smartrecruiters_jobs(company_url)
             keywords = company["keywords"]
             matching_jobs = filter_jobs(jobs, keywords)
-            seen_jobs = load_seen_jobs()
-            new_jobs = get_new_jobs(matching_jobs, seen_jobs)
-            print (f"Previous seen jobs: {len(seen_jobs)}")
+            new_jobs = []
+
+            for job in matching_jobs:
+                response = job_table.get_item(
+                    Key={"url": job["url"]}
+                )
+
+                if "Item" not in response:
+                    print(f"New employer job: {job['title']}")
+                    new_jobs.append(job)
+                    job_table.put_item(Item=job)
+
             print(f"New jobs: {len(new_jobs)}")
+
+            all_new_jobs.extend(new_jobs)
 
             print(f"Found {len(jobs)} jobs.")
             print(f"Matched {len(matching_jobs)} jobs.")
+
 
 
 
@@ -89,8 +109,36 @@ def main():
             #   print(job["title"])
             #   print(job["url"])
 
+    print(f"\nTotal new jobs across all sources: {len(all_new_jobs)}")
+    send_job_alerts(all_new_jobs)
 def find_new_gig_jobs(all_gig_jobs):
     new_dynamodb_gig_jobs = []
+
+def send_job_alerts(jobs):
+    if not jobs:
+        print("No new jobs to email.")
+        return
+
+    message_lines = [
+        f"AWS Job Watcher found {len(jobs)} new job(s):",
+        ""
+    ]
+
+    for job in jobs:
+        message_lines.append(job["title"])
+        message_lines.append(job["url"])
+        message_lines.append("")
+
+    message = "\n".join(message_lines)
+
+    response = sns.publish(
+        TopicArn=SNS_TOPIC_ARN,
+        Subject=f"AWS Job Watcher - {len(jobs)} New Job(s)",
+        Message=message
+    )
+
+    print(f"SNS Message ID: {response['MessageId']}")
+
 
 if __name__ == "__main__":
     main()
