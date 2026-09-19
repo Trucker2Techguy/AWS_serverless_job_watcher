@@ -1,5 +1,6 @@
 import json
 import boto3
+import os
 
 
 # from scrapers.hrmdirect import download_page, get_jobs, inspect_html
@@ -10,12 +11,18 @@ from scrapers.smartrecruiters import (
 from scrapers.gig_jobs import get_gig_jobs
 from scrapers.dataannotation import get_dataannotation_jobs
 
-dynamodb = boto3.Session(profile_name="job-watcher").resource("dynamodb")
+# session = boto3.Session(profile_name="job-watcher") """test enviroment"""
+
+if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    session = boto3.Session()
+else:
+    session = boto3.Session(profile_name="job-watcher")
+
+dynamodb = session.resource("dynamodb")
+sns = session.client("sns")
+
 gig_table = dynamodb.Table("job-watcher-seen-gigs")
-
 job_table = dynamodb.Table("job-watcher-seen-jobs")
-
-sns = boto3.Session(profile_name="job-watcher").client("sns")
 
 SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:178504705772:aws-job-watcher-alerts" #"""Use your own SNS topic ARN"""
 
@@ -138,6 +145,14 @@ def send_job_alerts(jobs):
     )
 
     print(f"SNS Message ID: {response['MessageId']}")
+
+def lambda_handler(event, context):
+    main()
+
+    return {
+        "statusCode": 200,
+        "body": "AWS Job Watcher completed successfully."
+    }
 
 
 if __name__ == "__main__":
