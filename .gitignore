@@ -1,0 +1,10 @@
+# Python generated files
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+
+# Lambda build artifacts
+lambda_build/
+aws-job-watcher.zip
