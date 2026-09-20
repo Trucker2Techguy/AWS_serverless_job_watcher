@@ -10,6 +10,7 @@ from scrapers.smartrecruiters import (
 )
 from scrapers.gig_jobs import get_gig_jobs
 from scrapers.dataannotation import get_dataannotation_jobs
+from scrapers.oneforma import get_oneforma_jobs
 
 # session = boto3.Session(profile_name="job-watcher") """test enviroment"""
 
@@ -23,6 +24,7 @@ sns = session.client("sns")
 
 gig_table = dynamodb.Table("job-watcher-seen-gigs")
 job_table = dynamodb.Table("job-watcher-seen-jobs")
+oneforma_seen_table = dynamodb.Table("job-watcher-oneforma-seen")
 
 SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:178504705772:aws-job-watcher-alerts" #"""Use your own SNS topic ARN"""
 
@@ -47,11 +49,13 @@ def main():
 
     gig_jobs = get_gig_jobs()
     dataannotation_jobs = get_dataannotation_jobs()
+    oneforma_jobs = get_oneforma_jobs(oneforma_seen_table)
 
     print(f"Main received {len(dataannotation_jobs)} DataAnnotation jobs")
     print(f"Main received {len(gig_jobs)} gig jobs")
+    print(f"Main received {len(oneforma_jobs)} oneforma jobs")
 
-    all_gig_jobs = gig_jobs + dataannotation_jobs
+    all_gig_jobs = gig_jobs + dataannotation_jobs + oneforma_jobs
     print(f"Total gig jobs: {len(all_gig_jobs)}")
 
     new_dynamodb_gig_jobs = []
