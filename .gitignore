@@ -8,3 +8,6 @@ __pycache__/
 # Lambda build artifacts
 lambda_build/
 aws-job-watcher.zip
+
+# PyCharm / JetBrains
+.idea/
